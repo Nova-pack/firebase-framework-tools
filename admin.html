@@ -1,0 +1,2586 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOVAPACK - Admin Console</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=Inter:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="libs/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root {
+            --brand-primary: #FF6600;
+            --bg-dark: #0A0B0C;
+            --surface: #121416;
+            --glass: rgba(255, 255, 255, 0.03);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            color-scheme: dark;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: #F2F4F7;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #0D0E10;
+            border-right: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .logo {
+            font-family: 'Xenotron', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 300;
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+            color: var(--brand-primary);
+        }
+
+        .nav-item {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #8E95A1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+
+        .nav-item.active {
+            background: var(--glass);
+            color: white;
+            border: 1px solid var(--border-glass);
+        }
+
+        .nav-item:hover:not(.active) {
+            color: white;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 400;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .user-list {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 4px;
+        }
+
+        .user-list th {
+            text-align: left;
+            color: #525866;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            padding: 8px 15px;
+            font-weight: 600;
+        }
+
+        .user-row {
+            background: var(--glass);
+            transition: background 0.2s;
+        }
+
+        .user-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .user-row td {
+            padding: 10px 15px;
+            font-size: 0.85rem;
+        }
+
+        .user-row td:first-child {
+            border-radius: 6px 0 0 6px;
+        }
+
+        .user-row td:last-child {
+            border-radius: 0 6px 6px 0;
+            text-align: right;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--brand-primary);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-glass);
+            color: var(--text-dim);
+        }
+
+        .btn-danger {
+            background: rgba(255, 68, 68, 0.08);
+            color: #ff4444;
+            border: 1px solid rgba(255, 68, 68, 0.15);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: var(--surface);
+            padding: 25px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid var(--border-glass);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #8E95A1;
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        input,
+        select,
+        option {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border-glass);
+            border-radius: 6px;
+            color: #F2F4F7;
+            box-sizing: border-box;
+            outline: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        select option {
+            background: var(--surface);
+            color: white;
+        }
+
+        .chip {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            background: rgba(0, 255, 127, 0.1);
+            color: #00ff7f;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="logo">NOVAPACK<span style="color:var(--brand-primary)">➤</span></div>
+
+        <div
+            style="font-size:0.65rem; color:#555; margin:15px 0 5px 15px; text-transform:uppercase; font-weight:700; letter-spacing:1px;">
+            Gestión de Envios</div>
+        <div class="nav-item active" id="nav-users">👥 Usuarios y Clientes</div>
+        <div class="nav-item" id="nav-reports">📊 Listados Globales</div>
+        <div class="nav-item" id="nav-admin-tickets">📦 Albaranes Manuales</div>
+        <div class="nav-item" id="nav-phones">📱 Teléfonos Alerta</div>
+
+        <div
+            style="font-size:0.65rem; color:#555; margin:15px 0 5px 15px; text-transform:uppercase; font-weight:700; letter-spacing:1px;">
+            Facturación y Tarifas</div>
+        <div class="nav-item" id="nav-billing">📄 Facturación</div>
+        <div class="nav-item" id="nav-tariffs">💰 Tarifas Clientes</div>
+
+        <div
+            style="font-size:0.65rem; color:#555; margin:15px 0 5px 15px; text-transform:uppercase; font-weight:700; letter-spacing:1px;">
+            Sistema</div>
+        <div class="nav-item" id="nav-config">⚙️ Configuración</div>
+
+        <div style="flex:1"></div>
+        <div class="nav-item" id="btn-logout">🚪 Cerrar Sesión</div>
+    </div>
+
+    <div class="main-content">
+        <!-- Usuarios View -->
+        <div id="view-users">
+            <div class="header">
+                <h1>Gestión de Clientes Cloud</h1>
+                <button class="btn btn-primary" id="btn-add-user">+ NUEVO CLIENTE</button>
+            </div>
+
+            <div class="card">
+                <table class="user-list">
+                    <thead>
+                        <tr>
+                            <th>Nº ID</th>
+                            <th>Cliente / Correo</th>
+                            <th>Estado</th>
+                            <th>Fecha Creación</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-table-body">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Teléfonos View -->
+        <div id="view-phones" style="display:none">
+            <div class="header">
+                <h1>Teléfonos de Alerta</h1>
+                <button class="btn btn-primary" id="btn-add-phone">+ NUEVO TELÉFONO</button>
+            </div>
+            <div class="card">
+                <table class="user-list">
+                    <thead>
+                        <tr>
+                            <th>Identificador / Nombre</th>
+                            <th>Nº Teléfono</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="phone-table-body">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Configuración View -->
+        <div id="view-config" style="display:none">
+            <div class="card">
+                <h3 style="margin-top:0; color:var(--brand-primary)">Configuración de Comunicaciones</h3>
+                <div class="form-group">
+                    <label>Pasarela SMS Gateway URL (Usar {TELEFONO} y {MENSAJE})</label>
+                    <input type="text" id="conf-sms-gateway"
+                        placeholder="https://api.gateway.com/send?to={TELEFONO}&msg={MENSAJE}">
+                </div>
+                <div class="form-group">
+                    <label>Teléfono Global Alerta Recogidas (Pickup SMS)</label>
+                    <input type="text" id="conf-pickup-phone" placeholder="+34600000000">
+                </div>
+                <button class="btn btn-primary" id="btn-save-settings">💾 GUARDAR CONFIGURACIÓN</button>
+            </div>
+
+            <div class="card" style="margin-top:30px; opacity:0.8;">
+                <h3 style="margin-top:0; color:var(--brand-primary)">Información Técnica</h3>
+                <div class="form-group">
+                    <label>ID del Proyecto Firebase</label>
+                    <div id="conf-project-id"
+                        style="background:rgba(0,0,0,0.3); padding:15px; border-radius:12px; font-family:monospace; border:1px solid var(--border-glass)">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tu UID de Administrador (Actual)</label>
+                    <div id="conf-admin-uid"
+                        style="background:rgba(0,0,0,0.3); padding:15px; border-radius:12px; font-family:monospace; border:1px solid var(--border-glass)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Listados View -->
+        <div id="view-reports" style="display:none">
+            <div class="header">
+                <h1>Listados Globales de Envíos</h1>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-outline" id="btn-export-accounting"
+                        style="border-color:#4CAF50; color:#4CAF50;">📑 EXPORTAR CONTABILIDAD</button>
+                    <button class="btn btn-outline" id="btn-export-reports">📥 EXPORTAR EXCEL</button>
+                    <button class="btn btn-outline" id="btn-print-reports">🖨️ IMPRIMIR LISTA</button>
+                </div>
+            </div>
+
+            <div class="card"
+                style="display:grid; grid-template-columns: repeat(4, 1fr) auto; gap:15px; align-items: flex-end;">
+                <div>
+                    <label>Desde Fecha</label>
+                    <input type="date" id="rep-date-from">
+                </div>
+                <div>
+                    <label>Hasta Fecha</label>
+                    <input type="date" id="rep-date-to">
+                </div>
+                <div class="form-group">
+                    <label>Nº ID Cliente (Vacío = Todos)</label>
+                    <input type="text" id="rep-client-id" placeholder="Ej: 001 o vacío" list="clients-datalist">
+                </div>
+                <div>
+                    <label>Provincia / Zona (Vacío = Todas)</label>
+                    <input type="text" id="rep-province" placeholder="Ej: Málaga o vacío">
+                </div>
+                <button class="btn btn-primary" id="btn-search-reports" style="height:38px;">🔍 BUSCAR</button>
+            </div>
+
+            <div class="card" id="printable-reports-area">
+                <style>
+                    @media print {
+                        body * {
+                            visibility: hidden;
+                        }
+
+                        #printable-reports-area,
+                        #printable-reports-area * {
+                            visibility: visible;
+                        }
+
+                        #printable-reports-area {
+                            position: absolute;
+                            left: 0;
+                            top: 0;
+                            width: 100%;
+                            border: none;
+                            box-shadow: none;
+                        }
+
+                        .no-print {
+                            display: none !important;
+                        }
+                    }
+
+                    .reports-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 0.8rem;
+                    }
+
+                    .reports-table th {
+                        background: rgba(255, 102, 0, 0.1);
+                        color: var(--brand-primary);
+                        text-align: left;
+                        padding: 10px;
+                        border-bottom: 2px solid #ddd;
+                    }
+
+                    .reports-table td {
+                        padding: 10px;
+                        border-bottom: 1px solid #eee;
+                    }
+                </style>
+                <div id="reports-status" style="text-align:center; padding:20px; color:#888;">Utiliza los filtros
+                    superiores para generar un listado.</div>
+                <table class="reports-table" id="reports-table-result" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Nº ID</th>
+                            <th>ID Albarán</th>
+                            <th>Fecha</th>
+                            <th>Destinatario</th>
+                            <th>Zona</th>
+                            <th>Bultos</th>
+                            <th>Tipo</th>
+                            <th>Portes</th>
+                            <th>Reemb.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reports-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Facturación View -->
+        <div id="view-billing" style="display:none">
+            <div class="header">
+                <h1>Sistema de Facturación y Contabilidad</h1>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-outline" id="btn-billing-config">📂 DATOS FISCALES NOVAPACK</button>
+                    <button class="btn btn-primary" id="btn-generate-invoice-view">+ GENERAR FACTURA</button>
+                </div>
+            </div>
+
+            <div class="card" id="billing-config-section"
+                style="display:none; border-left: 4px solid var(--brand-primary); margin-bottom:30px;">
+                <h3 style="margin-top:0; color:var(--brand-primary)">Datos Fiscales de la Empresa (NOVAPACK)</h3>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                    <div class="form-group">
+                        <label>Razón Social / Nombre Fiscal</label>
+                        <input type="text" id="fiscal-name" placeholder="Ej: NOVAPACK LOGISTICA S.L.">
+                    </div>
+                    <div class="form-group">
+                        <label>CIF / NIF</label>
+                        <input type="text" id="fiscal-cif" placeholder="Ej: B12345678">
+                    </div>
+                    <div class="form-group">
+                        <label>Dirección Fiscal Completa</label>
+                        <input type="text" id="fiscal-address" placeholder="Calle Ejemplo 123, 29000 Málaga">
+                    </div>
+                    <div class="form-group">
+                        <label>Email de Facturación</label>
+                        <input type="email" id="fiscal-email" placeholder="facturacion@novapack.info">
+                    </div>
+                    <div class="form-group">
+                        <label>IBAN / Cuenta Bancaria (Para Cobros)</label>
+                        <input type="text" id="fiscal-bank" placeholder="ES00 0000 0000 0000 0000 0000">
+                    </div>
+                    <div class="form-group">
+                        <label>ID Acreedor SEPA (Sufijo)</label>
+                        <input type="text" id="fiscal-sepa-id" placeholder="Ej: 000 (Consultar con su banco)">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de IVA por Defecto (%)</label>
+                        <input type="number" id="fiscal-iva" value="21">
+                    </div>
+                    <div class="form-group">
+                        <label>Retención IRPF (%) - (Transportistas Autónomos)</label>
+                        <input type="number" id="fiscal-irpf" value="0">
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btn-save-fiscal">💾 GUARDAR DATOS FISCALES</button>
+            </div>
+
+            <!-- Invoices List -->
+            <div class="card" style="margin-bottom:30px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;">Registro de Facturas Emitidas</h3>
+                    <button class="btn btn-secondary" id="btn-generate-sepa" style="font-size:0.8rem;">📦 GENERAR REMESA
+                        SEPA (BANCO)</button>
+                </div>
+                <table class="user-list">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">SEL.</th>
+                            <th>Nº FACTURA</th>
+                            <th>FECHA</th>
+                            <th>CLIENTE</th>
+                            <th>BASE IMP.</th>
+                            <th>IVA</th>
+                            <th>IRPF</th>
+                            <th>TOTAL</th>
+                            <th>ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoice-table-body">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Tax Models Summary (303/111) -->
+            <div class="card" style="background: #1a1d21; border-top: 4px solid #4CAF50;">
+                <h3 style="margin-top:0; color:#4CAF50;">Resumen para Modelos Tributarios (AEAT)</h3>
+                <p style="font-size:0.8rem; color:#888; margin-bottom:20px;">Cálculos estimados para la presentación de
+                    los modelos 303 (IVA) y 111 (Retenciones) según facturación emitida.</p>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                    <div>
+                        <h4 style="margin-bottom:10px;">Modelo 303 - IVA (Transporte)</h4>
+                        <div id="summary-303" style="font-size:0.9rem;">
+                            <!-- Loaded via JS -->
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom:10px;">Modelo 111 - Retenciones (IRPF)</h4>
+                        <div id="summary-111" style="font-size:0.9rem;">
+                            <!-- Loaded via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Albaranes Manuales View -->
+        <div id="view-admin-tickets" style="display:none">
+            <div class="header">
+                <h1>Creación Manual de Albaranes (Admin)</h1>
+                <button class="btn btn-primary" id="btn-admin-scan-qr">📷 ESCANEAR QR</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:20px;">
+                <div class="card">
+                    <h3 style="margin-top:0; color:var(--brand-primary)">1. Seleccionar Cliente</h3>
+                    <input type="text" id="admin-ticket-client-search" class="form-control mb-2"
+                        placeholder="Buscar cliente...">
+                    <select id="admin-ticket-client-select" class="form-control" size="10"
+                        style="height:200px;"></select>
+
+                    <h3 style="margin-top:20px; color:var(--brand-primary)">2. Empresa del Cliente</h3>
+                    <select id="admin-ticket-company-select" class="form-control"></select>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-top:0; color:var(--brand-primary)">3. Datos del Albarán</h3>
+                    <form id="admin-manual-ticket-form">
+                        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-bottom:10px;">
+                            <div>
+                                <label>Destinatario</label>
+                                <input type="text" id="admin-t-receiver" class="form-control" required
+                                    placeholder="Nombre">
+                            </div>
+                            <div>
+                                <label>Teléfono</label>
+                                <input type="text" id="admin-t-phone" class="form-control" placeholder="Teléfono">
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns: 3fr 1fr; gap:10px; margin-bottom:10px;">
+                            <div>
+                                <label>Dirección</label>
+                                <input type="text" id="admin-t-address" class="form-control" required
+                                    placeholder="Calle...">
+                            </div>
+                            <div>
+                                <label>Nº</label>
+                                <input type="text" id="admin-t-number" class="form-control" placeholder="Nº">
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                            <div>
+                                <label>Provincia</label>
+                                <input type="text" id="admin-t-province" class="form-control" placeholder="Provincia">
+                            </div>
+                            <div>
+                                <label>Turno</label>
+                                <select id="admin-t-timeslot" class="form-control">
+                                    <option value="MAÑANA">☀️ MAÑANA</option>
+                                    <option value="TARDE">🌙 TARDE</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <h4 style="margin:15px 0 5px 0;">Bultos</h4>
+                        <div id="admin-t-packages-container"
+                            style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:15px;">
+                            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                                <input type="number" id="admin-t-pkg-qty" class="form-control" value="1"
+                                    style="width:70px;">
+                                <input type="text" id="admin-t-pkg-size" class="form-control"
+                                    placeholder="Tamaño/Tipo (Bulto, Sobre...)" list="admin-suggested-sizes">
+                                <button type="button" class="btn btn-sm btn-primary" id="btn-admin-add-pkg">+</button>
+                            </div>
+                            <div id="admin-t-packages-list" style="font-size:0.8rem;"></div>
+                        </div>
+
+                        <datalist id="admin-suggested-sizes">
+                            <option value="Sobre">
+                            <option value="Pequeño">
+                            <option value="Mediano">
+                            <option value="Grande">
+                            <option value="Palet">
+                            <option value="Bulto">
+                        </datalist>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:20px;">
+                            <div>
+                                <label>Portes</label>
+                                <select id="admin-t-shipping" class="form-control">
+                                    <option value="Pagados">PAGADOS</option>
+                                    <option value="Debidos">DEBIDOS</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Reembolso (€)</label>
+                                <input type="number" id="admin-t-cod" class="form-control" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width:100%; padding:15px;">💾 CREAR ALBARÁN
+                            EN NUBE</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanner Modal for Admin -->
+        <div id="admin-scanner-modal" class="modal">
+            <div class="modal-content" style="max-width:400px;">
+                <h2 style="margin-top:0">Escanear Código QR</h2>
+                <div id="admin-qr-reader" style="width:100%; border-radius:12px; overflow:hidden;"></div>
+                <button class="btn btn-outline" id="btn-admin-close-scanner"
+                    style="width:100%; margin-top:20px;">CANCELAR</button>
+            </div>
+        </div>
+
+        <!-- Generate Invoice Modal -->
+        <div class="modal" id="modal-generate-invoice">
+            <div class="modal-content" style="max-width: 900px;">
+                <h2 style="margin-top:0">Generar Nueva Factura de Transporte</h2>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; margin-bottom:20px;">
+                    <div>
+                        <label>Buscar / Seleccionar Cliente</label>
+                        <input type="text" id="inv-client-search" class="form-control mb-2"
+                            placeholder="Filtrar por nombre o ID...">
+                        <select id="inv-client-select" class="form-control"></select>
+                    </div>
+                    <div>
+                        <label>Desde Fecha</label>
+                        <input type="date" id="inv-date-from">
+                    </div>
+                    <div>
+                        <label>Hasta Fecha</label>
+                        <input type="date" id="inv-date-to">
+                    </div>
+                </div>
+
+                <div
+                    style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 8px; margin-bottom: 20px;">
+                    <table class="user-list" style="margin:0;">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;"><input type="checkbox" id="inv-select-all"></th>
+                                <th>FECHA</th>
+                                <th>ALBARÁN</th>
+                                <th>DESTINATARIO</th>
+                                <th>BULTOS</th>
+                                <th>P. TARIFA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unbilled-tickets-body">
+                            <!-- Loaded via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card"
+                    style="background:rgba(255,102,0,0.05); display:grid; grid-template-columns: repeat(4, 1fr); gap:15px;">
+                    <div><label>SUBTOTAL</label>
+                        <div id="inv-calc-subtotal" style="font-weight:900; font-size:1.2rem;">0.00€</div>
+                    </div>
+                    <div><label>IVA (21%)</label>
+                        <div id="inv-calc-iva" style="font-weight:900; font-size:1.2rem; color: #4CAF50;">0.00€</div>
+                    </div>
+                    <div><label>IRPF (REMANENTE)</label>
+                        <div id="inv-calc-irpf" style="font-weight:900; font-size:1.2rem; color: #FF3B30;">0.00€</div>
+                    </div>
+                    <div><label>TOTAL FACTURA</label>
+                        <div id="inv-calc-total"
+                            style="font-weight:900; font-size:1.5rem; color: var(--brand-primary);">0.00€</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:15px; margin-top:20px;">
+                    <button class="btn btn-primary" id="btn-create-invoice-final" style="flex:2; padding:15px;">🚀
+                        GENERAR Y REGISTRAR FACTURA</button>
+                    <button class="btn btn-outline" id="btn-close-inv-modal" style="flex:1;">CANCELAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- User QR Modal -->
+        <div id="user-qr-modal" class="modal">
+            <div class="modal-content" style="max-width:350px; text-align:center;">
+                <h2 id="qr-modal-title" style="color:var(--brand-primary); margin-bottom:10px;">Identificador QR</h2>
+                <div id="qr-container"
+                    style="background:white; padding:20px; display:inline-block; border-radius:12px; margin:20px 0;">
+                </div>
+                <div id="qr-modal-id"
+                    style="font-weight:900; font-size:1.5rem; margin-bottom:20px; letter-spacing:2px;"></div>
+                <p style="font-size:0.8rem; color:#888;">Escanee este código en la App para cargar automáticamente los
+                    datos de este cliente.</p>
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <button class="btn btn-primary" onclick="window.printQR()" style="flex:1;">🖨️ IMPRIMIR</button>
+                    <button class="btn btn-outline"
+                        onclick="document.getElementById('user-qr-modal').style.display='none'"
+                        style="flex:1;">CERRAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tariff View -->
+        <div id="view-tariffs" style="display:none">
+            <div class="header">
+                <h1>Tarifas por Artículo (Personalizadas)</h1>
+            </div>
+
+            <div class="card"
+                style="display:flex; flex-direction:column; gap:15px; margin-bottom:20px; border-left: 4px solid var(--brand-primary);">
+                <h3 style="margin-top:0; color:var(--brand-primary); font-size:1rem;">Opcional: Crear/Editar Tarifa
+                    Global por ID</h3>
+                <p style="font-size:0.75rem; color:#888; margin-top:-10px;">Crea una tarifa "maestra" (ej: 101, 200) que
+                    luego puedes asignar a cualquier empresa.</p>
+                <div style="display:flex; gap:20px; align-items: flex-end;">
+                    <div style="flex:1">
+                        <label>ID Identificativo de Tarifa (Número o Nombre)</label>
+                        <input type="text" id="tariff-global-id" placeholder="Selecciona o escribe..."
+                            list="global-tariffs-datalist">
+                    </div>
+                    <button class="btn btn-primary" id="btn-load-global-tariff"
+                        style="height:38px; background:#4CAF50; border-color:#4CAF50;">GESTIONAR TARIFA GLOBAL</button>
+                </div>
+            </div>
+
+            <div class="card" style="display:flex; flex-direction:column; gap:15px;">
+                <h3 style="margin-top:0; color:var(--brand-primary); font-size:1rem;">Gestionar Tarifa Específica de
+                    Cliente</h3>
+                <div style="display:flex; gap:20px; align-items: flex-end;">
+                    <div style="width:100%">
+                        <label>1. Buscar / Filtrar Cliente</label>
+                        <input type="text" id="tariff-client-search" placeholder="Escribe nombre o ID para filtrar..."
+                            style="margin-bottom:10px;">
+
+                        <label>2. Seleccionar del desplegable</label>
+                        <select id="tariff-client-select" class="form-control">
+                            <option value="">Cargando clientes...</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btn-load-tariff" style="height:38px;">CARGAR TARIFA
+                        CLIENTE</button>
+                </div>
+            </div>
+
+            <div id="tariff-editor-area" style="display:none">
+                <div class="card">
+                    <h3 id="tariff-editor-title" style="margin-top:0; color:var(--brand-primary); font-size:1rem;">
+                        Añadir Artículo a Tarifa</h3>
+                    <p style="font-size:0.75rem; color:#888; margin-top:-10px; margin-bottom:15px;">Anota aquí el nombre
+                        exacto de la "Medida/Tamaño" (Bulto, Sobre, etc.) y su precio para este cliente.</p>
+                    <div style="display:grid; grid-template-columns: 2fr 1fr auto; gap:10px; align-items: flex-end;">
+                        <div>
+                            <label>Nombre del Artículo / Medida</label>
+                            <input type="text" id="new-tariff-item-name" placeholder="Ej: Bulto"
+                                list="tariff-items-suggested">
+                            <datalist id="tariff-items-suggested">
+                                <option value="Sobre">
+                                <option value="Pequeño">
+                                <option value="Mediano">
+                                <option value="Grande">
+                                <option value="Extra Grande">
+                                <option value="Palet">
+                                <option value="Bulto">
+                                <option value="Caja">
+                                <option value="BATERIA 45AH">
+                                <option value="BATERIA 75AH">
+                                <option value="BATERIA 100AH">
+                                <option value="LUNA DELANTERA">
+                                <option value="NEUMATICOS">
+                                <option value="GARRAFAS ADBLUE">
+                                <option value="FARO">
+                                <option value="ALETA">
+                                <option value="PARAGOLPES">
+                            </datalist>
+                        </div>
+                        <div>
+                            <label>Precio Unitario (€)</label>
+                            <input type="number" step="0.01" id="new-tariff-item-price" placeholder="0.00">
+                        </div>
+                        <button class="btn btn-primary" id="btn-add-tariff-item">➕ AÑADIR</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <table class="user-list">
+                        <thead>
+                            <tr>
+                                <th>Artículo / Medida</th>
+                                <th>Precio Unitario</th>
+                                <th style="text-align:right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tariff-items-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Phone Modal -->
+    <div class="modal" id="add-phone-modal">
+        <div class="modal-content">
+            <h2 style="margin-top:0">Añadir Teléfono Predefinido</h2>
+            <form id="add-phone-form">
+                <div class="form-group">
+                    <label>Identificador (Ej: Delegación Málaga / Repartidor Mañana)</label>
+                    <input type="text" id="new-phone-label" required placeholder="Nombre para el listado">
+                </div>
+                <div class="form-group">
+                    <label>Número de Teléfono</label>
+                    <input type="text" id="new-phone-number" required placeholder="+34600000000">
+                </div>
+                <div style="display:flex; gap:10px; margin-top:30px;">
+                    <button type="button" class="btn btn-outline" style="flex:1"
+                        id="btn-close-phone-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex:1">Guardar Teléfono</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal" id="add-user-modal">
+        <div class="modal-content" style="max-width: 750px;">
+            <h2 id="modal-user-title" style="margin-top:0">Añadir Nuevo Cliente</h2>
+            <form id="add-user-form">
+                <input type="hidden" id="edit-user-uid">
+
+                <div style="display: grid; grid-template-columns: 1fr 2.5fr; gap: 20px; margin-bottom: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Nº ID (Identificativo)</label>
+                        <input type="text" id="new-user-id-num" placeholder="Ej: 001">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Nombre del Cliente</label>
+                        <input type="text" id="new-user-name" required placeholder="Ej: Talleres Gomez">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Correo Electrónico (Acceso)</label>
+                        <input type="email" id="new-user-email" required placeholder="cliente@correo.com">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Clave de Acceso</label>
+                        <input type="text" id="new-user-password" required placeholder="Ej: np2026">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>ID de Tarifa Asignada (Opcional)</label>
+                        <input type="text" id="new-user-tariff-id" placeholder="Selecciona o escribe..."
+                            list="global-tariffs-datalist">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>IBAN Cliente</label>
+                            <input type="text" id="new-user-iban" placeholder="ES00...">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Ref. Mandato SEPA</label>
+                            <input type="text" id="new-user-sepa-ref" placeholder="Ej: MANDATO-001">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Fecha Firma Mandato</label>
+                            <input type="date" id="new-user-sepa-date">
+                        </div>
+                    </div>
+
+                    <div
+                        style="padding:20px; background:rgba(255,102,0,0.05); border-radius:12px; margin-bottom:20px; border:1px solid var(--border-glass);">
+                        <div
+                            style="font-size:0.65rem; font-weight:bold; color:var(--brand-primary); margin-bottom:15px; text-transform:uppercase;">
+                            Datos del Remitente (Auto-Albarán)</div>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Dirección del Remitente</label>
+                                <input type="text" id="new-user-sender-address" placeholder="Calle Ejemplo 1, Local 2">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Teléfono del Remitente</label>
+                                <input type="text" id="new-user-sender-phone" placeholder="600000000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:15px; margin-top:30px;">
+                        <button type="submit" class="btn btn-primary" style="flex:2; padding: 15px; font-size: 1rem;">💾
+                            GUARDAR DATOS DEL CLIENTE</button>
+                        <button type="button" class="btn btn-outline" id="btn-close-modal"
+                            style="flex:1; padding: 15px;">Cancelar</button>
+                    </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script>
+        // Auth Protection
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            try {
+                const adminDoc = await db.collection('config').doc('admin').get();
+                if (!adminDoc.exists || adminDoc.data().uid !== user.uid) {
+                    window.location.href = 'app.html';
+                } else {
+                    loadConfigInfo();
+                    loadUsers();
+                }
+            } catch (e) {
+                console.error("Admin verification failed:", e);
+                window.location.href = 'app.html';
+            }
+        });
+
+        console.log("NOVAPACK ADMIN CONSOLE - v2.2 ACTIVE");
+        const userTableBody = document.getElementById('user-table-body');
+        const addUserModal = document.getElementById('add-user-modal');
+        const btnAddUser = document.getElementById('btn-add-user');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const addUserForm = document.getElementById('add-user-form');
+        const btnLogout = document.getElementById('btn-logout');
+
+        // Navigation elements
+        const navUsers = document.getElementById('nav-users');
+        const navReports = document.getElementById('nav-reports');
+        const navTariffs = document.getElementById('nav-tariffs');
+        const navPhones = document.getElementById('nav-phones');
+        const navConfig = document.getElementById('nav-config');
+
+        const viewUsers = document.getElementById('view-users');
+        const viewReports = document.getElementById('view-reports');
+        const viewTariffs = document.getElementById('view-tariffs');
+        const viewPhones = document.getElementById('view-phones');
+        const viewConfig = document.getElementById('view-config');
+        const viewBilling = document.getElementById('view-billing');
+        const navBilling = document.getElementById('nav-billing');
+        const viewAdminTickets = document.getElementById('view-admin-tickets');
+        const navAdminTickets = document.getElementById('nav-admin-tickets');
+
+        // Switching Views
+        const showView = (viewId) => {
+            viewUsers.style.display = viewId === 'users' ? 'block' : 'none';
+            viewReports.style.display = viewId === 'reports' ? 'block' : 'none';
+            viewTariffs.style.display = viewId === 'tariffs' ? 'block' : 'none';
+            viewPhones.style.display = viewId === 'phones' ? 'block' : 'none';
+            viewConfig.style.display = viewId === 'config' ? 'block' : 'none';
+            viewBilling.style.display = viewId === 'billing' ? 'block' : 'none';
+            viewAdminTickets.style.display = viewId === 'admin-tickets' ? 'block' : 'none';
+
+            navUsers.classList.toggle('active', viewId === 'users');
+            navReports.classList.toggle('active', viewId === 'reports');
+            navTariffs.classList.toggle('active', viewId === 'tariffs');
+            navPhones.classList.toggle('active', viewId === 'phones');
+            navConfig.classList.toggle('active', viewId === 'config');
+            navBilling.classList.toggle('active', viewId === 'billing');
+            navAdminTickets.classList.toggle('active', viewId === 'admin-tickets');
+
+            if (viewId === 'config') loadConfigInfo();
+            if (viewId === 'phones') loadPhones();
+            if (viewId === 'reports') initReportsView();
+            if (viewId === 'tariffs') loadTariffClients();
+            if (viewId === 'billing') initBillingView();
+            if (viewId === 'admin-tickets') initAdminTicketsView();
+        };
+
+        navUsers.onclick = () => showView('users');
+        navReports.onclick = () => showView('reports');
+        navTariffs.onclick = () => showView('tariffs');
+        navPhones.onclick = () => showView('phones');
+        navConfig.onclick = () => showView('config');
+        navBilling.onclick = () => showView('billing');
+        navAdminTickets.onclick = () => showView('admin-tickets');
+
+        async function loadConfigInfo() {
+            if (!auth.currentUser) return;
+            document.getElementById('conf-admin-uid').textContent = auth.currentUser.uid;
+            document.getElementById('conf-project-id').textContent = firebaseConfig.projectId;
+            try {
+                const settingsDoc = await db.collection('config').doc('settings').get();
+                if (settingsDoc.exists) {
+                    const data = settingsDoc.data();
+                    document.getElementById('conf-sms-gateway').value = data.sms_gateway_url || '';
+                    document.getElementById('conf-pickup-phone').value = data.pickup_alert_phone || '';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('btn-save-settings').onclick = async () => {
+            const smsURL = document.getElementById('conf-sms-gateway').value;
+            const pickupPhone = document.getElementById('conf-pickup-phone').value;
+            try {
+                await db.collection('config').doc('settings').set({
+                    sms_gateway_url: smsURL,
+                    pickup_alert_phone: pickupPhone
+                }, { merge: true });
+                alert("Configuración guardada.");
+            } catch (e) { alert("Error al guardar."); }
+        };
+
+        async function loadUsers() {
+            try {
+                populateGlobalTariffsDatalist();
+                const snapshot = await db.collection('users').get();
+                userTableBody.innerHTML = '';
+                userMap = {};
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    userMap[doc.id] = data;
+                    const row = document.createElement('tr');
+                    row.className = 'user-row';
+                    row.innerHTML = `
+                        <td style="font-weight:900; color:var(--brand-primary); padding-left:20px;">#${data.idNum || '---'}</td>
+                        <td>
+                            <div style="font-weight:700">${data.name || 'Sin Nombre'}</div>
+                            <div style="font-size:0.8rem; color:#888">${data.email}</div>
+                            <div style="font-size:0.7rem; color:var(--brand-primary); margin-top:2px;">Clave: ${data.password || '****'}</div>
+                        </td>
+                        <td><span class="chip">Activo</span></td>
+                        <td style="color:#888">${data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString() : new Date(data.createdAt).toLocaleDateString()) : 'N/A'}</td>
+                        <td>
+                            <div style="display:flex; gap:5px;">
+                                <button class="btn btn-primary btn-sm" onclick='openEditUserModal(${JSON.stringify(data)}, "${doc.id}")' title="Editar">✏️</button>
+                                <button class="btn btn-outline btn-sm" onclick='showUserQR("${data.idNum || ''}", "${data.name || ''}")' title="Ver QR Cliente">📱</button>
+                                <button class="btn btn-secondary btn-sm" onclick="sendWhatsApp('${data.senderPhone || ''}', 'Hola ${data.name}, le contactamos desde NOVAPACK.')" title="WhatsApp">💬</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteUser('${doc.id}')" title="Eliminar">🗑️</button>
+                            </div>
+                        </td>
+                    `;
+                    userTableBody.appendChild(row);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        addUserForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const idNum = document.getElementById('new-user-id-num').value;
+            const name = document.getElementById('new-user-name').value;
+            const email = document.getElementById('new-user-email').value;
+            const password = document.getElementById('new-user-password').value;
+            const tariffId = document.getElementById('new-user-tariff-id').value.trim();
+            const iban = document.getElementById('new-user-iban').value.trim();
+            const sepaRef = document.getElementById('new-user-sepa-ref').value.trim();
+            const sepaDate = document.getElementById('new-user-sepa-date').value;
+            const senderAddress = document.getElementById('new-user-sender-address').value.trim();
+            const senderPhone = document.getElementById('new-user-sender-phone').value.trim();
+            const userId = document.getElementById('edit-user-uid').value;
+
+            try {
+                const updateData = { idNum, name, email, password, tariffId, iban, sepaRef, sepaDate, senderAddress, senderPhone };
+                if (userId) {
+                    await db.collection('users').doc(userId).update(updateData);
+                } else {
+                    await db.collection('users').doc(email).set({
+                        ...updateData,
+                        role: 'client',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                addUserModal.style.display = 'none';
+                loadUsers();
+            } catch (err) { alert('Error al guardar.'); }
+        };
+
+        window.openEditUserModal = (data, uid) => {
+            document.getElementById('modal-user-title').textContent = "Editar Cliente";
+            document.getElementById('edit-user-uid').value = uid;
+            document.getElementById('new-user-id-num').value = data.idNum || '';
+            document.getElementById('new-user-name').value = data.name || '';
+            document.getElementById('new-user-email').value = data.email || '';
+            document.getElementById('new-user-password').value = data.password || '';
+            document.getElementById('new-user-tariff-id').value = data.tariffId || '';
+            document.getElementById('new-user-iban').value = data.iban || '';
+            document.getElementById('new-user-sepa-ref').value = data.sepaRef || '';
+            document.getElementById('new-user-sepa-date').value = data.sepaDate || '';
+            document.getElementById('new-user-sender-address').value = data.senderAddress || '';
+            document.getElementById('new-user-sender-phone').value = data.senderPhone || '';
+            addUserModal.style.display = 'flex';
+        };
+
+        window.deleteUser = async (id) => {
+            if (confirm('¿Eliminar cliente?')) {
+                await db.collection('users').doc(id).delete();
+                loadUsers();
+            }
+        };
+
+        window.showUserQR = (idNum, name) => {
+            if (!idNum) { alert("Este cliente no tiene ID asignado."); return; }
+            document.getElementById('qr-modal-title').textContent = name;
+            document.getElementById('qr-modal-id').textContent = "#" + idNum;
+            const container = document.getElementById('qr-container');
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: "CLIENT_ID:" + idNum,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            document.getElementById('user-qr-modal').style.display = 'flex';
+        };
+
+        window.printQR = () => {
+            const content = document.getElementById('qr-container').innerHTML;
+            const id = document.getElementById('qr-modal-id').textContent;
+            const name = document.getElementById('qr-modal-title').textContent;
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <html>
+                <head><title>Imprimir QR Cliente</title></head>
+                <body style="text-align:center; font-family:sans-serif; padding-top:50px;">
+                    <h1 style="color:#FF6600">NOVAPACK</h1>
+                    <h2>${name}</h2>
+                    <div style="margin:20px 0;">${content}</div>
+                    <div style="font-size:2rem; font-weight:bold;">${id}</div>
+                    <script>window.onload = () => { window.print(); window.close(); };<\/script>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        };
+
+        // Reports Logic
+        let reportsData = [];
+        let userMap = {};
+        let tariffsCache = {};
+
+        async function initReportsView() {
+            const userSnap = await db.collection('users').get();
+            const datalist = document.getElementById('clients-datalist');
+            if (datalist) datalist.innerHTML = '';
+            userMap = {};
+            userSnap.forEach(doc => {
+                const data = doc.data();
+                userMap[doc.id] = data; // Store full user object
+                if (data.role !== 'admin' && datalist) {
+                    const opt = document.createElement('option');
+                    opt.value = data.idNum || '---';
+                    opt.textContent = data.name || data.email;
+                    datalist.appendChild(opt);
+                }
+            });
+
+            // Pre-load all tariffs for report calculation
+            tariffsCache = {};
+            const tariffSnap = await db.collectionGroup('tariffs').get();
+            tariffSnap.forEach(doc => {
+                // doc.id is uid
+                tariffsCache[doc.id] = doc.data().items || {};
+            });
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('rep-date-from').value = today;
+            document.getElementById('rep-date-to').value = today;
+        }
+
+        document.getElementById('btn-search-reports').onclick = async () => {
+            const dFrom = document.getElementById('rep-date-from').value;
+            const dTo = document.getElementById('rep-date-to').value;
+            const fCID = document.getElementById('rep-client-id').value.trim();
+            const fProv = document.getElementById('rep-province').value.trim().toLowerCase();
+            const status = document.getElementById('reports-status');
+            const table = document.getElementById('reports-table-result');
+            const tbody = document.getElementById('reports-body');
+
+            status.style.display = 'block';
+            status.textContent = "Buscando envíos y aplicando tarifas...";
+            table.style.display = 'none';
+            tbody.innerHTML = '';
+            reportsData = [];
+
+            try {
+                // Ensure tariffs are loaded
+                if (Object.keys(tariffsCache).length === 0) {
+                    const tariffSnap = await db.collectionGroup('tariffs').get();
+                    tariffSnap.forEach(doc => { tariffsCache[doc.id] = doc.data().items || {}; });
+                }
+
+                const snap = await db.collectionGroup('tickets').get();
+                snap.forEach(doc => {
+                    const t = doc.data();
+                    const d = (t.createdAt && t.createdAt.toDate) ? t.createdAt.toDate() : new Date(t.createdAt);
+                    // Path: users/{uid}/companies/{compId}/tickets/{id}
+                    const compId = doc.ref.parent.parent.id;
+                    const uid = doc.ref.parent.parent.parent.parent.id;
+                    const uData = userMap[uid] || {};
+                    const cid = uData.idNum || '---';
+                    const tId = uData.tariffId;
+
+                    const dIso = d.toISOString().split('T')[0];
+
+                    if (dFrom && dIso < dFrom) return; if (dTo && dIso > dTo) return;
+                    if (fCID && cid !== fCID) return;
+                    if (fProv && (!t.province || !t.province.toLowerCase().includes(fProv))) return;
+
+                    // Calculate Price based on Tariff (Global ID first, then Personal UID)
+                    let activeTariff = null;
+                    if (tId && tariffsCache["GLOBAL_" + tId]) {
+                        activeTariff = tariffsCache["GLOBAL_" + tId];
+                    } else if (tariffsCache[uid]) {
+                        activeTariff = tariffsCache[uid];
+                    }
+
+                    let companyPrice = 0;
+                    if (activeTariff && t.packagesList) {
+                        t.packagesList.forEach(p => {
+                            const price = activeTariff[p.size] || 0;
+                            companyPrice += (parseInt(p.qty) || 1) * price;
+                        });
+                    }
+
+                    reportsData.push({ ...t, uid, compId, docId: doc.id, clientIdNum: cid, companyPrice });
+                });
+
+                if (reportsData.length === 0) {
+                    status.textContent = "Sin resultados.";
+                } else {
+                    status.style.display = 'none';
+                    table.style.display = 'table';
+                    reportsData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).forEach(t => {
+                        const date = (t.createdAt && t.createdAt.toDate) ? t.createdAt.toDate() : new Date(t.createdAt);
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+    <td style="font-weight:900; color:var(--brand-primary); padding-left:10px;">#${t.clientIdNum}</td>
+    <td>${t.id}</td>
+    <td>${date.toLocaleDateString()}</td>
+    <td style="text-transform:uppercase; font-size:0.85rem;">${t.receiver}</td>
+    <td>${t.province || ''}</td>
+    <td>${t.packagesList ? t.packagesList.reduce((s, p) => s + (parseInt(p.qty) || 1), 0) : 1}</td>
+    <td>${t.shippingType}</td>
+    <td style="font-weight:bold; color:#FF6600;">${t.cod ? t.cod + '€' : '-'}</td>
+    <td>
+        <div style="display:flex; gap:5px;">
+            <button class="btn btn-outline btn-sm" onclick="printTicketFromAdmin('${t.uid}', '${t.compId}', '${t.docId}')" title="Imprimir">🖨️</button>
+            <button class="btn btn-secondary btn-sm" onclick="sendWhatsAppTicket('${t.uid}', '${t.compId}', '${t.docId}')" title="WhatsApp">💬</button>
+        </div>
+    </td>
+    `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (e) { console.error(e); status.textContent = "Error al cargar datos."; }
+        };
+
+        document.getElementById('btn-export-reports').onclick = () => {
+            if (reportsData.length === 0) return;
+            let csv = "ID CLIENTE;ALBARAN;FECHA;DESTINATARIO;ZONA;BULTOS;PRECIO TARIFA;PORTES;REEMBOLSO\n";
+            reportsData.forEach(t => {
+                const date = (t.createdAt && t.createdAt.toDate) ? t.createdAt.toDate() : new Date(t.createdAt);
+                const pkgs = t.packagesList ? t.packagesList.reduce((s, p) => s + (parseInt(p.qty) || 1), 0) : 1;
+                csv += `${t.clientIdNum};${t.id};${date.toLocaleDateString()};${t.receiver};${t.province ||
+                    ''};${pkgs};${t.companyPrice.toFixed(2)};${t.shippingType};${t.cod || ''}\n`;
+            });
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `envios_global_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        };
+
+        // Accounting Export (Universal Format)
+        document.getElementById('btn-export-accounting').onclick = () => {
+            if (reportsData.length === 0) { alert("Genera un listado primero."); return; }
+
+            // Standard accounting format: Date, DocNo, Account/ID, Name, Concept, Base, VAT, Total
+            let csv = "FECHA;ASIENTO;CUENTA_ID;CLIENTE;CONCEPTO;BASE_IMP;IVA;TOTAL_TARIFA;REEMBOLSO\n";
+
+            reportsData.forEach(t => {
+                const date = (t.createdAt && t.createdAt.toDate) ? t.createdAt.toDate() : new Date(t.createdAt);
+                const dateStr = date.toLocaleDateString();
+
+                const total = t.companyPrice || 0;
+                const base = (total / 1.21).toFixed(2);
+                const iva = (total - parseFloat(base)).toFixed(2);
+
+                const receiver = (t.receiver || "").replace(/;/g, ",");
+                const concept = `Tarifa Novapack Ref: ${t.id}`;
+
+                csv += `${dateStr};${t.id};${t.clientIdNum};${receiver};${concept};${base};${iva};${total.toFixed(2)};${t.cod ||
+                    0}\n`;
+            });
+
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `CONTABILIDAD_NOVAPACK_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        };
+
+        document.getElementById('btn-print-reports').onclick = () => window.print();
+
+        // Phone Management
+        const phoneTableBody = document.getElementById('phone-table-body');
+        const addPhoneModal = document.getElementById('add-phone-modal');
+        const btnAddPhone = document.getElementById('btn-add-phone');
+        const btnClosePhoneModal = document.getElementById('btn-close-phone-modal');
+        const addPhoneForm = document.getElementById('add-phone-form');
+
+        async function loadPhones() {
+            const snapshot = await db.collection('config').doc('phones').collection('list').get();
+            phoneTableBody.innerHTML = '';
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const row = document.createElement('tr');
+                row.className = 'user-row';
+                row.innerHTML = `<td>${data.label}</td>
+    <td>${data.number}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deletePhone('${doc.id}')">🗑️</button></td>`;
+                phoneTableBody.appendChild(row);
+            });
+        }
+
+        addPhoneForm.onsubmit = async (e) => {
+            e.preventDefault();
+            await db.collection('config').doc('phones').collection('list').add({
+                label: document.getElementById('new-phone-label').value,
+                number: document.getElementById('new-phone-number').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            addPhoneModal.style.display = 'none';
+            loadPhones();
+        };
+
+        window.deletePhone = async (id) => {
+            await db.collection('config').doc('phones').collection('list').doc(id).delete();
+            loadPhones();
+        };
+
+        btnAddPhone.onclick = () => addPhoneModal.style.display = 'flex';
+        btnClosePhoneModal.onclick = () => addPhoneModal.style.display = 'none';
+        btnAddUser.onclick = () => {
+            document.getElementById('modal-user-title').textContent = "Añadir Nuevo Cliente";
+            document.getElementById('edit-user-uid').value = "";
+            addUserForm.reset();
+            addUserModal.style.display = 'flex';
+        };
+        btnCloseModal.onclick = () => addUserModal.style.display = 'none';
+        btnLogout.onclick = () => auth.signOut().then(() => window.location.href = 'index.html');
+
+        // Tariff Management Logic
+        let currentTariffUID = null;
+        let allClientsForTariff = [];
+
+        async function loadTariffClients() {
+            const select = document.getElementById('tariff-client-select');
+            select.innerHTML = '<option value="">Cargando clientes...</option>';
+
+            try {
+                // Load Clients
+                const snap = await db.collection('users').get();
+                allClientsForTariff = [];
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    allClientsForTariff.push({ uid: doc.id, ...data });
+                });
+                renderFilteredTariffClients('');
+
+                // Load existing Global Tariff IDs
+                populateGlobalTariffsDatalist();
+            } catch (e) { console.error(e); }
+        }
+
+        async function populateGlobalTariffsDatalist() {
+            const globalDatalist = document.getElementById('global-tariffs-datalist');
+            if (!globalDatalist) return;
+            globalDatalist.innerHTML = '';
+            try {
+                const tariffSnap = await db.collection('tariffs').get();
+                const globalIds = new Set();
+                tariffSnap.forEach(doc => {
+                    if (doc.id.startsWith("GLOBAL_")) {
+                        globalIds.add(doc.id.replace("GLOBAL_", ""));
+                    }
+                });
+                globalIds.forEach(id => {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    globalDatalist.appendChild(opt);
+                });
+            } catch (e) { console.error("Error populating tariffs:", e); }
+        }
+
+        function renderFilteredTariffClients(filter) {
+            const select = document.getElementById('tariff-client-select');
+            select.innerHTML = '<option value="">-- Seleccionar un Cliente --</option>';
+            const f = filter.toLowerCase();
+            const filtered = allClientsForTariff.filter(c =>
+                (c.name || '').toLowerCase().includes(f) ||
+                (c.idNum || '').toLowerCase().includes(f) ||
+                (c.email || '').toLowerCase().includes(f)
+            );
+            filtered.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.uid;
+                opt.textContent = `[#${c.idNum || '---'}] ${c.name || c.email}`;
+                select.appendChild(opt);
+            });
+        }
+
+        document.getElementById('tariff-client-search').oninput = (e) => {
+            renderFilteredTariffClients(e.target.value);
+        };
+
+        document.getElementById('btn-load-tariff').onclick = async () => {
+            const uid = document.getElementById('tariff-client-select').value;
+            if (!uid) { alert("Selecciona un cliente"); return; }
+            currentTariffUID = uid;
+            document.getElementById('tariff-editor-area').style.display = 'block';
+            document.getElementById('tariff-editor-title').textContent = "Editar Tarifa Personalizada";
+            loadTariffTable(uid);
+        };
+
+        document.getElementById('btn-load-global-tariff').onclick = async () => {
+            const tid = document.getElementById('tariff-global-id').value.trim();
+            if (!tid) { alert("Escribe un ID de Tarifa Global"); return; }
+            currentTariffUID = "GLOBAL_" + tid;
+            document.getElementById('tariff-editor-area').style.display = 'block';
+            document.getElementById('tariff-editor-title').textContent = "Editar Tarifa Global #" + tid;
+            loadTariffTable(currentTariffUID);
+        };
+
+        async function loadTariffTable(uid) {
+            const tbody = document.getElementById('tariff-items-body');
+            tbody.innerHTML = '<tr><td colspan="3">Cargando articulos...</td></tr>';
+            try {
+                const doc = await db.collection('tariffs').doc(uid).get();
+                tbody.innerHTML = '';
+                if (doc.exists && doc.data().items) {
+                    const items = doc.data().items;
+                    Object.keys(items).forEach(name => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+    <td style="font-weight:700">${name}</td>
+    <td>${parseFloat(items[name]).toFixed(2)}€</td>
+    <td style="text-align:right">
+        <button class="btn btn-danger btn-sm" onclick="deleteTariffItem('${name}')">🗑️</button>
+    </td>
+    `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">No hay artículos definidos. Añade el primero arriba.</td></tr>';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('btn-add-tariff-item').onclick = async () => {
+            const name = document.getElementById('new-tariff-item-name').value.trim();
+            const price = parseFloat(document.getElementById('new-tariff-item-price').value);
+            if (!name || isNaN(price)) { alert("Completa nombre y precio"); return; }
+
+            try {
+                const tariffRef = db.collection('tariffs').doc(currentTariffUID);
+                const doc = await tariffRef.get();
+                let items = doc.exists ? doc.data().items || {} : {};
+                items[name] = price;
+                await tariffRef.set({ items }, { merge: true });
+
+                document.getElementById('new-tariff-item-name').value = '';
+                document.getElementById('new-tariff-item-price').value = '';
+                loadTariffTable(currentTariffUID);
+                alert("Artículo guardado en tarifa.");
+            } catch (e) { alert("Error al guardar."); }
+        };
+
+        window.deleteTariffItem = async (name) => {
+            if (!confirm(`¿Eliminar ${name} de la tarifa?`)) return;
+            try {
+                const tariffRef = db.collection('tariffs').doc(currentTariffUID);
+                const doc = await tariffRef.get();
+                let items = doc.data().items;
+                delete items[name];
+                await tariffRef.set({ items });
+                loadTariffTable(currentTariffUID);
+            } catch (e) { alert("Error al eliminar."); }
+        };
+
+        loadUsers();
+        populateGlobalTariffsDatalist();
+
+        // --- BILLING / ACCOUNTING SYSTEM ---
+        let unbilledTickets = [];
+        let invCompanyData = null;
+
+        async function initBillingView() {
+            loadFiscalData();
+            loadInvoices();
+        }
+
+        async function loadFiscalData() {
+            const doc = await db.collection('config').doc('fiscal').get();
+            if (doc.exists) {
+                invCompanyData = doc.data();
+                document.getElementById('fiscal-name').value = invCompanyData.name || '';
+                document.getElementById('fiscal-cif').value = invCompanyData.cif || '';
+                document.getElementById('fiscal-address').value = invCompanyData.address || '';
+                document.getElementById('fiscal-email').value = invCompanyData.email || '';
+                document.getElementById('fiscal-bank').value = invCompanyData.bank || '';
+                document.getElementById('fiscal-sepa-id').value = invCompanyData.sepaId || '';
+                document.getElementById('fiscal-iva').value = invCompanyData.iva || 21;
+                document.getElementById('fiscal-irpf').value = invCompanyData.irpf || 0;
+            }
+        }
+
+        document.getElementById('btn-save-fiscal').onclick = async () => {
+            const data = {
+                name: document.getElementById('fiscal-name').value.trim(),
+                cif: document.getElementById('fiscal-cif').value.trim(),
+                address: document.getElementById('fiscal-address').value.trim(),
+                email: document.getElementById('fiscal-email').value.trim(),
+                bank: document.getElementById('fiscal-bank').value.trim(),
+                sepaId: document.getElementById('fiscal-sepa-id').value.trim(),
+                iva: parseFloat(document.getElementById('fiscal-iva').value) || 0,
+                irpf: parseFloat(document.getElementById('fiscal-irpf').value) || 0,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('config').doc('fiscal').set(data);
+            invCompanyData = data;
+            alert("Datos Fiscales NOVAPACK actualizados.");
+        };
+
+        document.getElementById('btn-billing-config').onclick = () => {
+            const section = document.getElementById('billing-config-section');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        };
+
+        document.getElementById('btn-generate-invoice-view').onclick = () => {
+            document.getElementById('modal-generate-invoice').style.display = 'flex';
+            document.getElementById('inv-client-search').value = '';
+            populateInvoiceClientSelect();
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('inv-date-from').value = today;
+            document.getElementById('inv-date-to').value = today;
+        };
+
+        document.getElementById('btn-close-inv-modal').onclick = () => {
+            document.getElementById('modal-generate-invoice').style.display = 'none';
+        };
+
+        function populateInvoiceClientSelect(filter = "") {
+            const select = document.getElementById('inv-client-select');
+            select.innerHTML = '<option value="">-- Seleccionar Cliente --</option>';
+            Object.keys(userMap).forEach(uid => {
+                const u = userMap[uid];
+                const searchStr = ((u.name || "") + " " + (u.idNum || "")).toLowerCase();
+                if (filter && !searchStr.includes(filter.toLowerCase())) return;
+                const opt = document.createElement('option');
+                opt.value = uid;
+                opt.textContent = `[#${u.idNum || '?'}] ${u.name || 'Sin Nombre'}`;
+                select.appendChild(opt);
+            });
+        }
+
+        document.getElementById('inv-client-select').onchange = refreshUnbilledList;
+        document.getElementById('inv-date-from').onchange = refreshUnbilledList;
+        document.getElementById('inv-date-to').onchange = refreshUnbilledList;
+
+        // Buscador de clientes en el modal de factura
+        document.getElementById('inv-client-search').oninput = (e) => {
+            populateInvoiceClientSelect(e.target.value);
+        };
+
+        // Seleccionar/Deseleccionar todos los albaranes
+        document.getElementById('inv-select-all').onchange = (e) => {
+            const checks = document.querySelectorAll('.inv-ticket-check');
+            checks.forEach(c => c.checked = e.target.checked);
+            updateInvoiceCalculations();
+        };
+
+        async function refreshUnbilledList() {
+            const uid = document.getElementById('inv-client-select').value;
+            const from = document.getElementById('inv-date-from').value;
+            const to = document.getElementById('inv-date-to').value;
+            const tbody = document.getElementById('unbilled-tickets-body');
+
+            if (!uid) { tbody.innerHTML = ''; return; }
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Buscando albaranes...</td></tr>';
+
+            try {
+                if (Object.keys(tariffsCache).length === 0) {
+                    const tSnap = await db.collectionGroup('tariffs').get();
+                    tSnap.forEach(d => { tariffsCache[d.id] = d.data().items || {}; });
+                }
+
+                // USO DE COLLECTIONGROUP: Encuentra todos los tickets del cliente sin importar la estructura de carpetas
+                // Esto soluciona que admin no vea el trabajo de los usuarios si estos migran su perfil.
+                const uData = userMap[uid] || {};
+                const snap = await db.collectionGroup('tickets').get();
+                let tickets = [];
+
+                snap.forEach(doc => {
+                    const t = doc.data();
+                    if (t.invoiceId) return; // Ya facturado
+
+                    // Comprobación de propiedad: Por UID exacto o por ID numérico del cliente
+                    const tUid = t.uid || doc.ref.parent.parent.parent.parent.id;
+                    const isOwner = (tUid === uid) || (t.clientIdNum && t.clientIdNum === uData.idNum);
+
+                    if (!isOwner) return;
+
+                    const date = (t.createdAt && t.createdAt.toDate) ? t.createdAt.toDate() : new Date(t.createdAt);
+                    const iso = date.toISOString().split('T')[0];
+
+                    if ((!from || iso >= from) && (!to || iso <= to)) {
+                        // Extraer IDs de la ruta para poder facturar/actualizar luego
+                        const compId = doc.ref.parent.parent.id;
+                        const docUid = doc.ref.parent.parent.parent.parent.id;
+                        tickets.push({ ...t, docId: doc.id, compId: compId, uid: docUid });
+                    }
+                });
+
+                unbilledTickets = tickets;
+                renderUnbilledTable();
+                updateInvoiceCalculations();
+
+                // Reset select all checkbox
+                document.getElementById('inv-select-all').checked = true;
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="6">Error al cargar.</td></tr>';
+            }
+        }
+        function renderUnbilledTable() {
+            const
+                tbody = document.getElementById('unbilled-tickets-body'); tbody.innerHTML = ''; unbilledTickets.forEach((t, i) => {
+                    const date = (t.createdAt && t.createdAt.toDate) ? t.createdAt.toDate() : new Date(t.createdAt);
+                    const pkgs = t.packagesList ? t.packagesList.reduce((s, p) => s + (parseInt(p.qty) || 1), 0) : 1;
+
+                    // Price calc (Case-insensitive matching)
+                    const uData = userMap[t.uid] || {};
+                    const activeTariffRaw = (uData.tariffId && tariffsCache["GLOBAL_" + uData.tariffId]) ? tariffsCache["GLOBAL_" + uData.tariffId] : (tariffsCache[t.uid] || {});
+
+                    // Normalize tariff for case-insensitive lookup
+                    const activeTariff = {};
+                    Object.keys(activeTariffRaw).forEach(k => { activeTariff[k.toLowerCase()] = activeTariffRaw[k]; });
+
+                    let price = 0;
+                    if (t.packagesList) {
+                        t.packagesList.forEach(p => {
+                            const sizeKey = (p.size || 'Bulto').toLowerCase();
+                            price += (parseInt(p.qty) || 1) * (activeTariff[sizeKey] || 0);
+                        });
+                    } else {
+                        // Legacy fallback 
+                        const sizeKey = (t.size || 'Bulto').toLowerCase();
+                        price = (parseInt(t.packages) || 1) * (activeTariff[sizeKey] || 0);
+                    }
+                    t.calculatedPrice = price;
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'user-row';
+                    tr.innerHTML = `
+        <td><input type="checkbox" class="inv-ticket-check" data-index="${i}" checked
+                onchange="updateInvoiceCalculations()"></td>
+        <td>${date.toLocaleDateString()}</td>
+        <td>${t.id}</td>
+        <td>${t.receiver}</td>
+        <td>${pkgs}</td>
+        <td>${price.toFixed(2)}€</td>
+        `;
+                    tbody.appendChild(tr);
+                });
+        }
+
+        window.updateInvoiceCalculations = () => {
+            const checks = document.querySelectorAll('.inv-ticket-check');
+            let subtotal = 0;
+            checks.forEach(c => {
+                if (c.checked) {
+                    const idx = parseInt(c.dataset.index);
+                    subtotal += unbilledTickets[idx].calculatedPrice;
+                }
+            });
+
+            const ivaRate = parseFloat(document.getElementById('fiscal-iva').value) || 0;
+            const irpfRate = parseFloat(document.getElementById('fiscal-irpf').value) || 0;
+
+            const iva = subtotal * (ivaRate / 100);
+            const irpf = subtotal * (irpfRate / 100);
+            const total = subtotal + iva - irpf;
+
+            document.getElementById('inv-calc-subtotal').textContent = subtotal.toFixed(2) + '€';
+            document.getElementById('inv-calc-iva').textContent = iva.toFixed(2) + '€';
+            document.getElementById('inv-calc-irpf').textContent = irpf.toFixed(2) + '€';
+            document.getElementById('inv-calc-total').textContent = total.toFixed(2) + '€';
+
+            invoiceCalculations = { subtotal, iva, irpf, total, ivaRate, irpfRate };
+        };
+
+        document.getElementById('btn-create-invoice-final').onclick = async () => {
+            if (invoiceCalculations.total <= 0) { alert("Selecciona albaranes con valor."); return; } if (!invCompanyData ||
+                !invCompanyData.cif) { alert("Primero configura los Datos Fiscales de NOVAPACK."); return; } const
+                    checks = document.querySelectorAll('.inv-ticket-check:checked'); const
+                        selectedIndices = Array.from(checks).map(c => parseInt(c.dataset.index));
+            const selectedTickets = selectedIndices.map(i => unbilledTickets[i]);
+
+            const uid = document.getElementById('inv-client-select').value;
+            const clientData = userMap[uid];
+
+            showLoading();
+            try {
+                // Get next invoice number
+                const invSnap = await db.collection('invoices').orderBy('number', 'desc').limit(1).get();
+                let nextNum = 1;
+                if (!invSnap.empty) nextNum = (invSnap.docs[0].data().number || 0) + 1;
+
+                const invoiceData = {
+                    number: nextNum,
+                    invoiceId: `FAC-${new Date().getFullYear()}-${nextNum.toString().padStart(4, '0')}`,
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    clientId: uid,
+                    clientName: clientData.name,
+                    clientCIF: clientData.idNum || 'N/A',
+                    subtotal: invoiceCalculations.subtotal,
+                    iva: invoiceCalculations.iva,
+                    ivaRate: invoiceCalculations.ivaRate,
+                    irpf: invoiceCalculations.irpf,
+                    irpfRate: invoiceCalculations.irpfRate,
+                    total: invoiceCalculations.total,
+                    tickets: selectedTickets.map(t => t.id),
+                    senderData: invCompanyData
+                };
+
+                const invDoc = await db.collection('invoices').add(invoiceData);
+
+                // Update Tickets with invoiceId to mark as billed
+                const batch = db.batch();
+                selectedTickets.forEach(t => {
+                    const tRef =
+                        db.collection('users').doc(t.uid).collection('companies').doc(t.compId).collection('tickets').doc(t.docId);
+                    batch.update(tRef, { invoiceId: invDoc.id, invoiceNum: invoiceData.invoiceId });
+                });
+                await batch.commit();
+
+                alert(`Factura ${invoiceData.invoiceId} generada con éxito.`);
+                document.getElementById('btn-close-inv-modal').click();
+                loadInvoices();
+            } catch (e) { alert("Error: " + e.message); }
+            finally { hideLoading(); }
+        };
+
+        async function loadInvoices() {
+            const tbody = document.getElementById('invoice-table-body');
+            tbody.innerHTML = '<tr><td colspan="8">Cargando facturas...</td></tr>';
+
+            try {
+                const snap = await db.collection('invoices').orderBy('number', 'desc').get();
+                tbody.innerHTML = '';
+
+                let stats303 = {};
+                let stats111 = {};
+
+                if (snap.empty) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">No hay facturas emitidas.</td></tr>';
+                }
+
+                snap.forEach(doc => {
+                    const inv = doc.data();
+                    const date = (inv.date && inv.date.toDate) ? inv.date.toDate() : new Date();
+
+                    // Quarters for AEAT Models
+                    const quarter = "Trimestre " + (Math.floor(date.getMonth() / 3) + 1) + " (" + date.getFullYear() + ")";
+                    if (!stats303[quarter]) stats303[quarter] = { base: 0, iva: 0 };
+                    if (!stats111[quarter]) stats111[quarter] = { base: 0, irpf: 0 };
+
+                    stats303[quarter].base += inv.subtotal;
+                    stats303[quarter].iva += inv.iva;
+                    stats111[quarter].base += inv.subtotal;
+                    stats111[quarter].irpf += inv.irpf;
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'user-row';
+                    tr.innerHTML = `
+            <td style="display:flex; align-items:center; gap:5px; border-bottom:none;">
+                <input type="checkbox" class="sepa-check" data-id="${doc.id}">
+                <span style="font-weight:bold;">${inv.invoiceId}</span>
+            </td>
+            <td>${date.toLocaleDateString()}</td>
+            <td>${inv.clientName}</td>
+            <td>${inv.subtotal.toFixed(2)}€</td>
+            <td>${inv.iva.toFixed(2)}€ (${inv.ivaRate}%)</td>
+            <td>${inv.irpf.toFixed(2)}€ (${inv.irpfRate}%)</td>
+            <td style="font-weight:900; color:var(--brand-primary)">${inv.total.toFixed(2)}€</td>
+            <td>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-outline btn-sm" onclick="printInvoice('${doc.id}')" title="Imprimir">🖨️</button>
+                    <button class="btn btn-secondary btn-sm" onclick="emailInvoice('${doc.id}')" title="Email">📧</button>
+                    <button class="btn btn-secondary btn-sm" style="background:#25D366; border-color:#25D366;" onclick="sendWhatsAppInvoice('${doc.id}')" title="WhatsApp">💬</button>
+                    <button class="btn btn-outline btn-sm" style="color:#FF4444;" onclick="downloadInvoicePDF('${doc.id}')" title="PDF">📄</button>
+                    ${!inv.isCredit ? `<button class="btn btn-outline btn-sm" style="color:#FF9500; border-color:#FF9500;" onclick="createCreditInvoice('${doc.id}')" title="Abonar Factura">🔄</button>` : ''}
+                    <button class="btn btn-danger btn-sm" onclick="deleteInvoice('${doc.id}')" title="Eliminar">🗑️</button>
+                </div>
+            </td>
+            `;
+                    tbody.appendChild(tr);
+                });
+
+                renderTaxSummary(stats303, stats111);
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('btn-generate-sepa').onclick = async () => {
+            const checks = document.querySelectorAll('.sepa-check:checked');
+            if (checks.length === 0) { alert("Selecciona al menos una factura para remesar."); return; }
+            if (!invCompanyData || !invCompanyData.bank || !invCompanyData.cif) {
+                alert("Configura primero los datos fiscales y el IBAN de NOVAPACK."); return;
+            }
+
+            showLoading();
+            try {
+                let invoices = [];
+                for (let c of checks) {
+                    const doc = await db.collection('invoices').doc(c.dataset.id).get();
+                    if (doc.exists) invoices.push({ id: doc.id, ...doc.data() });
+                }
+
+                const xml = generateSEPAXML(invoices, invCompanyData);
+                const blob = new Blob([xml], { type: 'application/xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `REMESA_SEPA_${new Date().toISOString().split('T')[0]}.xml`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                alert("Remesa SEPA generada correctamente. Súbala ahora a la web de su banco.");
+            } catch (e) { alert("Error: " + e.message); }
+            finally { hideLoading(); }
+        };
+
+        function generateSEPAXML(invoices, company) {
+            const msgId = "MSG" + Date.now();
+            const creationDate = new Date().toISOString().split('.')[0];
+            const totalAmount = invoices.reduce((sum, inv) => sum + inv.total, 0).toFixed(2);
+            const numTrans = invoices.length;
+            const creditorIBAN = company.bank.replace(/\s/g, '');
+            const creditorCIF = company.cif.replace(/[^A-Z0-9]/g, '');
+            const creditorName = company.name;
+            const sepaId = company.sepaId || "000";
+            const creditorId = `ES${creditorIBAN.substring(2, 4)}${sepaId}${creditorCIF}`;
+
+            let transactionsHTML = '';
+            invoices.forEach(inv => {
+                const client = userMap[inv.clientId] || {};
+                const clientIBAN = (client.iban || "").replace(/\s/g, '');
+                const clientName = (client.name || inv.clientName).substring(0, 70).replace(/[&<>"]/g, '');
+                const mandateId = client.sepaRef || ("MANDATO-" + inv.clientId.substring(0, 8));
+                const mandateDate = client.sepaDate || new Date().toISOString().split('T')[0];
+
+                transactionsHTML += `
+                <DrctDbtTxInf>
+                    <PmtId><EndToEndId>${inv.invoiceId}</EndToEndId></PmtId>
+                    <InstdAmt Ccy="EUR">${inv.total.toFixed(2)}</InstdAmt>
+                    <DrctDbtTx>
+                        <MndtRltdInf>
+                            <MndtId>${mandateId}</MndtId>
+                            <DtOfSgntr>${mandateDate}</DtOfSgntr>
+                        </MndtRltdInf>
+                    </DrctDbtTx>
+                    <Dbtr><Nm>${clientName}</Nm></Dbtr>
+                    <DbtrAcct><Id><IBAN>${clientIBAN}</IBAN></Id></DbtrAcct>
+                    <RmtInf><Ustrd>Factura ${inv.invoiceId}</Ustrd></RmtInf>
+                </DrctDbtTxInf>`;
+            });
+
+            return `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02">
+  <CstmrDrctDbtInitn>
+    <GrpHdr>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${creationDate}</CreDtTm>
+      <NbOfTxs>${numTrans}</NbOfTxs>
+      <CtrlSum>${totalAmount}</CtrlSum>
+      <InitgPty><Nm>${creditorName}</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>${msgId}-INF</PmtInfId>
+      <PmtMtd>DD</PmtMtd>
+      <NbOfTxs>${numTrans}</NbOfTxs>
+      <CtrlSum>${totalAmount}</CtrlSum>
+      <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl><LclInstrm><Cd>CORE</Cd></LclInstrm><SeqTp>RCUR</SeqTp></PmtTpInf>
+      <ReqdColltnDt>${new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]}</ReqdColltnDt>
+      <Cdtr><Nm>${creditorName}</Nm></Cdtr>
+      <CdtrAcct><Id><IBAN>${creditorIBAN}</IBAN></Id></CdtrAcct>
+      <CdtrAgt><FinInstnId><Othr><Id>NOTPROVIDED</Id></Othr></FinInstnId></CdtrAgt>
+      <CdtrSchmeId><Id><PrvtId><Othr><Id>${creditorId}</Id><SchmeNm><Prtry>SEPA</Prtry></SchmeNm></Othr></PrvtId></Id></CdtrSchmeId>
+      ${transactionsHTML}
+    </PmtInf>
+  </CstmrDrctDbtInitn>
+</Document>`;
+        }
+
+        function renderTaxSummary(s303, s111) {
+            const div303 = document.getElementById('summary-303');
+            const div111 = document.getElementById('summary-111');
+
+            div303.innerHTML = '';
+            div111.innerHTML = '';
+
+            Object.keys(s303).forEach(q => {
+                const data = s303[q];
+                div303.innerHTML += `
+            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:4px; margin-bottom:10px;">
+                <strong>${q}</strong><br>
+                Base Imponible: ${data.base.toFixed(2)}€ |
+                <span style="color:#4CAF50">IVA Devengado: ${data.iva.toFixed(2)}€</span>
+            </div>
+            `;
+            });
+
+            Object.keys(s111).forEach(q => {
+                const data = s111[q];
+                div111.innerHTML += `
+            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:4px; margin-bottom:10px;">
+                <strong>${q}</strong><br>
+                Base Retenciones: ${data.base.toFixed(2)}€ |
+                <span style="color:#FF3B30">IRPF a Ingresar: ${data.irpf.toFixed(2)}€</span>
+            </div>
+            `;
+            });
+        }
+
+        window.printInvoice = async (id) => {
+            showLoading();
+            const doc = await db.collection('invoices').doc(id).get();
+            const inv = doc.data();
+            hideLoading();
+            const date = (inv.date && inv.date.toDate) ? inv.date.toDate().toLocaleDateString() : 'N/A';
+            const win = window.open('', '_blank');
+            win.document.write(`
+            <html>
+
+            <head>
+                <title>Factura ${inv.invoiceId}</title>
+                <style>
+                    body {
+                        font-family: sans-serif;
+                        padding: 40px;
+                        color: #333;
+                        line-height: 1.6;
+                    }
+
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        border-bottom: 2px solid #EEE;
+                        padding-bottom: 20px;
+                        margin-bottom: 40px;
+                    }
+
+                    .fiscal-info {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 40px;
+                        margin-bottom: 40px;
+                    }
+
+                    .fiscal-box {
+                        border: 1px solid #EEE;
+                        padding: 20px;
+                        border-radius: 8px;
+                    }
+
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 40px;
+                    }
+
+                    th {
+                        background: #F9F9F9;
+                        text-align: left;
+                        padding: 12px;
+                        border-bottom: 2px solid #EEE;
+                    }
+
+                    td {
+                        padding: 12px;
+                        border-bottom: 1px solid #EEE;
+                    }
+
+                    .totals {
+                        width: 300px;
+                        margin-left: auto;
+                    }
+
+                    .total-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 10px 0;
+                    }
+
+                    .total-final {
+                        font-size: 1.4rem;
+                        font-weight: bold;
+                        border-top: 2px solid #333;
+                        margin-top: 10px;
+                    }
+
+                    @media print {
+                        .no-print {
+                            display: none;
+                        }
+                    }
+                </style>
+            </head>
+
+            <body>
+                <div class="header">
+                    <div>
+                        <h1 style="color:#FF6600; margin:0;">NOVAPACK LOGÍSTICA</h1>
+                        <p style="margin:2px 0;">Servicios de Paquetería Urgente</p>
+                        <p style="margin:2px 0; font-size:0.8rem; color:#666;">Consultas: <span style="font-weight:bold;">administracion@novapack.info</span></p>
+                    </div>
+                    <div style="text-align:right">
+                        <h2 style="margin:0;">${inv.isCredit ? 'FACTURA RECTIFICATIVA (ABONO)' : 'FACTURA'}</h2>
+                        <p style="font-size:1.2rem; font-weight:bold;">${inv.invoiceId}</p>
+                        <p>Fecha: ${date}</p>
+                    </div>
+                </div>
+                <div class="fiscal-info">
+                    <div class="fiscal-box"><strong>EMISOR:</strong><br>${inv.senderData.name}<br>CIF:
+                        ${inv.senderData.cif}<br>${inv.senderData.address}<br>${inv.senderData.email}</div>
+                    <div class="fiscal-box"><strong>RECEPTOR / CLIENTE:</strong><br>${inv.clientName}<br>CIF/NIF:
+                        ${inv.clientCIF}<br></div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>CONCEPTO / SERVICIOS DE TRANSPORTE</th>
+                            <th style="text-align:right">CANTIDAD</th>
+                            <th style="text-align:right">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Relación de Albaranes: ${inv.tickets.join(', ')}</td>
+                            <td style="text-align:right">1</td>
+                            <td style="text-align:right">${inv.subtotal.toFixed(2)}€</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="totals">
+                    <div class="total-row"><span>Base Imponible:</span> <span>${inv.subtotal.toFixed(2)}€</span></div>
+                    <div class="total-row"><span>IVA (${inv.ivaRate}%):</span> <span>+${inv.iva.toFixed(2)}€</span></div>
+                    ${inv.irpf > 0 ? `<div class="total-row"><span>Retención IRPF (${inv.irpfRate}%):</span> <span>-${inv.irpf.toFixed(2)}€</span></div>` : ''}
+                    <div class="total-row total-final"><span>TOTAL:</span> <span>${inv.total.toFixed(2)}€</span></div>
+                </div>
+                <div style="margin-top:60px; padding:20px; border:1px solid #EEE; border-radius:8px; background:#F9F9F9;">
+                    <strong style="color:var(--brand-primary)">FORMA DE PAGO:</strong><br>
+                    Transferencia bancaria a la cuenta:<br>
+                    <span style="font-size:1.1rem; font-weight:bold; letter-spacing:1px;">${inv.senderData.bank || 'Consultar con administración'}</span>
+                </div>
+                <div style="margin-top:40px; font-size:0.8rem; color:#888; text-align:center;">Factura generada por el sistema NOVAPACK CLOUD. Registro mercantil de Málaga.</div>
+                <button class="no-print" onclick="window.print()" style="padding:15px 30px; background:#FF6600; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin-top:20px;">🖨️ IMPRIMIR FACTURA</button>
+            </body>
+            </html>
+            `);
+            win.document.close();
+        };
+
+        window.emailInvoice = async (id) => {
+            const doc = await db.collection('invoices').doc(id).get();
+            const inv = doc.data();
+            const client = userMap[inv.clientId];
+            const email = client ? client.email : '';
+            const subject = encodeURIComponent(`Factura ${inv.invoiceId} - NOVAPACK LOGÍSTICA`);
+            const body = encodeURIComponent(`Hola ${inv.clientName},\n\nLe adjuntamos el detalle de su factura ${inv.invoiceId} por importe de ${inv.total.toFixed(2)}€.\n\nForma de pago: Transferencia a ${inv.senderData ? inv.senderData.bank : 'la cuenta habitual'}\n\nGracias por confiar en NOVAPACK.`);
+            window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        };
+
+        window.downloadInvoicePDF = async (id) => {
+            showLoading();
+            const doc = await db.collection('invoices').doc(id).get();
+            const inv = doc.data();
+            const date = (inv.date && inv.date.toDate) ? inv.date.toDate().toLocaleDateString() : 'N/A';
+            const element = document.createElement('div');
+            element.innerHTML = generateInvoiceHTML(inv, date);
+            const opt = {
+                margin: 10,
+                filename: `Factura_${inv.invoiceId}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(opt).save();
+            hideLoading();
+        };
+
+        window.sendWhatsApp = (phone, msg) => {
+            if (!phone) { alert("Sin teléfono configurado."); return; }
+            const clean = phone.replace(/\s+/g, '').replace('+', '');
+            const final = clean.startsWith('34') ? clean : '34' + clean;
+            window.open(`https://wa.me/${final}?text=${encodeURIComponent(msg)}`, '_blank');
+        };
+
+        window.sendWhatsAppInvoice = async (id) => {
+            const doc = await db.collection('invoices').doc(id).get();
+            const inv = doc.data();
+            const client = userMap[inv.clientId];
+            const phone = client ? client.senderPhone : '';
+            const msg = `Hola ${inv.clientName}, le enviamos su factura ${inv.invoiceId} (${inv.total.toFixed(2)}€). Saludos, NOVAPACK.`;
+            window.sendWhatsApp(phone, msg);
+        };
+
+        window.sendWhatsAppTicket = async (uid, compId, docId) => {
+            const doc = await db.collection('users').doc(uid).collection('companies').doc(compId).collection('tickets').doc(docId).get();
+            const t = doc.data();
+            const client = userMap[uid];
+            const msg = `Hola, consulta sobre el albarán ${t.id} con destino ${t.receiver}.`;
+            window.sendWhatsApp(client ? client.senderPhone : '', msg);
+        };
+
+        window.createCreditInvoice = async (id) => {
+            if (!confirm("¿Desea crear una factura de abono (rectificativa) para esta factura? El importe será negativo.")) return;
+            showLoading();
+            try {
+                const doc = await db.collection('invoices').doc(id).get();
+                const inv = doc.data();
+
+                // Get next invoice ID with a 'CR-' prefix for credits
+                const counterDoc = await db.collection('config').doc('counters').get();
+                let nextNum = (counterDoc.data().invoice || 0) + 1;
+                const creditId = `ABO-${new Date().getFullYear()}-${nextNum.toString().padStart(4, '0')}`;
+
+                const creditData = {
+                    ...inv,
+                    invoiceId: creditId,
+                    isCredit: true,
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    subtotal: -inv.subtotal,
+                    iva: -inv.iva,
+                    irpf: -inv.irpf,
+                    total: -inv.total,
+                    originalInvoice: inv.invoiceId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await db.collection('invoices').doc(creditId).set(creditData);
+                await db.collection('config').doc('counters').update({ invoice: nextNum });
+
+                alert(`Factura de abono ${creditId} generada con éxito.`);
+                loadInvoices();
+            } catch (e) { alert("Error al crear abono: " + e.message); }
+            finally { hideLoading(); }
+        };
+
+        window.printTicketFromAdmin = async (uid, compId, docId) => {
+            showLoading();
+            const doc = await db.collection('users').doc(uid).collection('companies').doc(compId).collection('tickets').doc(docId).get();
+            const t = doc.data();
+            hideLoading();
+            if (!t) return;
+            const win = window.open('', '_blank');
+            win.document.write(`<html><head><title>Albarán ${t.id}</title><style>body{font-family:sans-serif;padding:20px;}</style></head><body>
+                <h1 style="color:#FF6600">Albarán ${t.id}</h1>
+                <p><strong>Remitente:</strong> ${t.sender}</p>
+                <p><strong>Destinatario:</strong> ${t.receiver}<br>${t.address}<br>${t.province}</p>
+                <p><strong>Bultos:</strong> ${t.packages}</p>
+                <p><strong>Notas:</strong> ${t.notes || '-'}</p>
+                <button onclick="window.print()" style="margin-top:20px">Imprimir</button>
+            </body></html>`);
+            win.document.close();
+        };
+
+        function generateInvoiceHTML(inv, date) {
+            return `
+            <div style="font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; background:white;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #EEE; padding-bottom: 20px; margin-bottom: 40px;">
+                    <div><div style="font-size: 2rem; font-weight: bold; color: #FF6600;">NOVAPACK LOGÍSTICA</div><div style="font-size: 1.2rem; color: #666;">FACTURA: ${inv.invoiceId}</div></div>
+                    <div style="text-align: right;"><div style="font-size: 1.1rem; font-weight: bold;">Fecha: ${date}</div></div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+                    <div style="border: 1px solid #EEE; padding: 20px; border-radius: 8px;"><strong>EMISOR:</strong><br>${inv.senderData.name}<br>CIF: ${inv.senderData.cif}<br>${inv.senderData.address}</div>
+                    <div style="border: 1px solid #EEE; padding: 20px; border-radius: 8px;"><strong>CLIENTE:</strong><br>${inv.clientName}<br>CIF/NIF: ${inv.clientCIF}</div>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+                    <thead><tr style="background: #F9F9F9;"><th style="padding: 15px; border-bottom: 2px solid #EEE; text-align: left;">CONCEPTO</th><th style="padding: 15px; border-bottom: 2px solid #EEE; text-align: right;">TOTAL</th></tr></thead>
+                    <tbody><tr><td style="padding: 15px; border-bottom: 1px solid #EEE;">Servicios de transporte (Albaranes: ${inv.tickets.join(', ')})</td><td style="padding: 15px; border-bottom: 1px solid #EEE; text-align: right;">${inv.subtotal.toFixed(2)}€</td></tr></tbody>
+                </table>
+                <div style="float: right; width: 300px;">
+                    <div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>Base Imponible:</span><span>${inv.subtotal.toFixed(2)}€</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>IVA (${inv.ivaRate}%):</span><span>${inv.iva.toFixed(2)}€</span></div>
+                    ${inv.irpf > 0 ? `<div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>IRPF (-${inv.irpfRate}%):</span><span>-${inv.irpf.toFixed(2)}€</span></div>` : ''}
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 1.4rem; font-weight: bold; border-top: 2px solid #FF6600; color: #FF6600;"><span>TOTAL:</span><span>${inv.total.toFixed(2)}€</span></div>
+                </div>
+                <div style="clear: both; margin-top: 60px; padding: 20px; background: #F9F9F9; border-radius: 8px;"><strong>FORMA DE PAGO:</strong> Transferencia a ${inv.senderData.bank}</div>
+            </div>`;
+        }
+
+        window.deleteInvoice = async (id) => {
+            if (!confirm("¿Eliminar factura y marcar albaranes como No Facturados?")) return;
+            showLoading();
+            try {
+                const doc = await db.collection('invoices').doc(id).get();
+                const inv = doc.data();
+                const batch = db.batch();
+                const uSnap = await db.collectionGroup('tickets').where('invoiceId', '==', id).get();
+                uSnap.forEach(tDoc => {
+                    batch.update(tDoc.ref, {
+                        invoiceId: firebase.firestore.FieldValue.delete(), invoiceNum:
+                            firebase.firestore.FieldValue.delete()
+                    });
+                });
+                batch.delete(db.collection('invoices').doc(id));
+                await batch.commit();
+                alert("Factura eliminada. Los albaranes vuelven a aparecer como 'No Facturados'.");
+                loadInvoices();
+            } catch (e) { alert("Error: " + e.message); }
+            finally { hideLoading(); }
+        };
+
+        function showLoading() {
+            if (document.getElementById('loading-overlay'))
+                document.getElementById('loading-overlay').style.display = 'flex';
+        }
+        function hideLoading() {
+            if (document.getElementById('loading-overlay'))
+                document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // --- ADMIN MANUAL TICKETS ---
+        let adminTicketPackages = [];
+        let adminTicketUID = null;
+        let adminTicketCompID = null;
+
+        function initAdminTicketsView() {
+            populateAdminTicketClients();
+            resetAdminTicketForm();
+        }
+
+        function populateAdminTicketClients(filter = "") {
+            const select = document.getElementById('admin-ticket-client-select');
+            select.innerHTML = '';
+            Object.keys(userMap).forEach(uid => {
+                const u = userMap[uid];
+                const searchStr = ((u.name || "") + " " + (u.idNum || "")).toLowerCase();
+                if (filter && !searchStr.includes(filter.toLowerCase())) return;
+
+                const opt = document.createElement('option');
+                opt.value = uid;
+                opt.textContent = `[#${u.idNum || '?'}] ${u.name || 'Sin Nombre'}`;
+                select.appendChild(opt);
+            });
+        }
+
+        document.getElementById('admin-ticket-client-search').oninput = (e) => {
+            populateAdminTicketClients(e.target.value);
+        };
+
+        document.getElementById('admin-ticket-client-select').onchange = async (e) => {
+            adminTicketUID = e.target.value;
+            loadAdminTicketCompanies(adminTicketUID);
+        };
+
+        async function loadAdminTicketCompanies(uid) {
+            const select = document.getElementById('admin-ticket-company-select');
+            select.innerHTML = '<option value="">Cargando empresas...</option>';
+            try {
+                const snap = await db.collection('users').doc(uid).collection('companies').get();
+                select.innerHTML = '';
+                snap.forEach(doc => {
+                    const opt = document.createElement('option');
+                    opt.value = doc.id;
+                    opt.textContent = doc.data().name;
+                    select.appendChild(opt);
+                });
+                adminTicketCompID = select.value;
+            } catch (e) { select.innerHTML = '<option value="">Error al cargar empresas</option>'; }
+        }
+
+        document.getElementById('admin-ticket-company-select').onchange = (e) => {
+            adminTicketCompID = e.target.value;
+        };
+
+        document.getElementById('btn-admin-add-pkg').onclick = () => {
+            const qty = parseInt(document.getElementById('admin-t-pkg-qty').value) || 1;
+            const size = document.getElementById('admin-t-pkg-size').value.trim();
+            if (!size) return;
+            adminTicketPackages.push({ qty, size });
+            renderAdminPackages();
+            document.getElementById('admin-t-pkg-size').value = '';
+        };
+
+        function renderAdminPackages() {
+            const container = document.getElementById('admin-t-packages-list');
+            container.innerHTML = adminTicketPackages.map((p, i) => `
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px; background:rgba(255,255,255,0.05); padding:5px; border-radius:4px;">
+                    <span>${p.qty}x ${p.size}</span>
+                    <button type="button" onclick="removeAdminPkg(${i})" style="background:none; border:none; color:#FF3B30; cursor:pointer;">✕</button>
+                </div>
+            `).join('');
+        }
+
+        window.removeAdminPkg = (i) => {
+            adminTicketPackages.splice(i, 1);
+            renderAdminPackages();
+        };
+
+        document.getElementById('admin-manual-ticket-form').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!adminTicketUID || !adminTicketCompID) { alert("Selecciona cliente y empresa."); return; }
+            if (adminTicketPackages.length === 0) { alert("Añade al menos un bulto."); return; }
+
+            showLoading();
+            try {
+                const counterRef = db.collection('users').doc(adminTicketUID).collection('companies').doc(adminTicketCompID).collection('nextId').doc('counter');
+                const counterDoc = await counterRef.get();
+                let nextVal = 1;
+                if (counterDoc.exists) nextVal = (counterDoc.data().value || 0) + 1;
+
+                const compDoc = await db.collection('users').doc(adminTicketUID).collection('companies').doc(adminTicketCompID).get();
+                const prefix = compDoc.data().prefix || "MAN";
+                const ticketId = `${prefix}${nextVal.toString().padStart(5, '0')}`;
+
+                const ticketData = {
+                    id: ticketId,
+                    receiver: document.getElementById('admin-t-receiver').value,
+                    phone: document.getElementById('admin-t-phone').value,
+                    address: document.getElementById('admin-t-address').value + (document.getElementById('admin-t-number').value ? " Nº " + document.getElementById('admin-t-number').value : ""),
+                    province: document.getElementById('admin-t-province').value,
+                    timeSlot: document.getElementById('admin-t-timeslot').value,
+                    shippingType: document.getElementById('admin-t-shipping').value,
+                    cod: parseFloat(document.getElementById('admin-t-cod').value) || 0,
+                    packagesList: adminTicketPackages,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    adminCreated: true,
+                    printed: false
+                };
+
+                await db.collection('users').doc(adminTicketUID).collection('companies').doc(adminTicketCompID).collection('tickets').doc(ticketId).set(ticketData);
+                await counterRef.set({ value: nextVal });
+
+                alert(`Albarán ${ticketId} creado con éxito para el cliente.`);
+                resetAdminTicketForm();
+            } catch (err) { alert("Error: " + err.message); }
+            finally { hideLoading(); }
+        };
+
+        function resetAdminTicketForm() {
+            document.getElementById('admin-manual-ticket-form').reset();
+            adminTicketPackages = [];
+            document.getElementById('admin-t-packages-list').innerHTML = '';
+        }
+
+        // Billing Selection Filter logic
+        document.getElementById('inv-client-search').oninput = (e) => {
+            populateInvoiceClientSelect(e.target.value);
+        };
+
+        // Admin Scanner Logic
+        let adminScanner = null;
+        document.getElementById('btn-admin-scan-qr').onclick = async () => {
+            document.getElementById('admin-scanner-modal').style.display = 'flex';
+            if (!adminScanner) adminScanner = new Html5Qrcode("admin-qr-reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            try {
+                await adminScanner.start({ facingMode: "environment" }, config, async (text) => {
+                    let tid = null;
+                    let cid = null;
+
+                    // 1. Detect JSON format
+                    if (text.trim().startsWith("{")) {
+                        try {
+                            const data = JSON.parse(text);
+                            if (data.id) tid = data.id;
+                            if (data.clientId) cid = data.clientId;
+                        } catch (e) { }
+                    }
+
+                    // 2. Detect prefixed format
+                    if (!tid && text.startsWith("TICKET_ID:")) tid = text.split(":")[1];
+                    if (!cid && text.startsWith("CLIENT_ID:")) cid = text.split(":")[1];
+
+                    if (tid) {
+                        showLoading();
+                        try {
+                            const tSnap = await db.collectionGroup('tickets').where('id', '==', tid).get();
+                            if (!tSnap.empty) {
+                                const tDoc = tSnap.docs[0];
+                                const tData = tDoc.data();
+
+                                // Auto-assign client and company
+                                const uid = tDoc.ref.parent.parent.parent.parent.id;
+                                const compId = tDoc.ref.parent.parent.id;
+
+                                adminTicketUID = uid;
+                                document.getElementById('admin-ticket-client-select').value = uid;
+                                await loadAdminTicketCompanies(uid);
+                                adminTicketCompID = compId;
+                                document.getElementById('admin-ticket-company-select').value = compId;
+
+                                document.getElementById('admin-t-receiver').value = tData.receiver || "";
+                                document.getElementById('admin-t-phone').value = tData.phone || "";
+                                document.getElementById('admin-t-address').value = (tData.address || "").split(" Nº ")[0];
+                                document.getElementById('admin-t-number').value = (tData.address || "").includes(" Nº ") ? tData.address.split(" Nº ")[1] : "";
+                                document.getElementById('admin-t-province').value = tData.province || "";
+                                adminTicketPackages = tData.packagesList || [];
+                                renderAdminPackages();
+                                stopAdminScanner();
+                                alert("Albarán y Cliente cargados correctamente.");
+                            } else { alert("Albarán no encontrado."); }
+                        } catch (e) { alert("Error al cargar: " + e.message); }
+                        finally { hideLoading(); }
+                    } else if (cid) {
+                        const uEntry = Object.entries(userMap).find(([id, data]) => data.idNum == cid);
+                        if (uEntry) {
+                            adminTicketUID = uEntry[0];
+                            document.getElementById('admin-ticket-client-select').value = adminTicketUID;
+                            loadAdminTicketCompanies(adminTicketUID);
+                            stopAdminScanner();
+                            alert("Cliente detectado: " + uEntry[1].name);
+                        }
+                    }
+                });
+            } catch (e) { alert("Error cámara: " + e); }
+        };
+
+        function stopAdminScanner() {
+            if (adminScanner) adminScanner.stop().catch(() => { });
+            document.getElementById('admin-scanner-modal').style.display = 'none';
+        }
+        document.getElementById('btn-admin-close-scanner').onclick = stopAdminScanner;
+
+        /** 
+         * LECTOR QR EXTERNO (FÍSICO): Captura de entrada por teclado
+         * Los lectores físicos emulan un teclado y suelen terminar con 'Enter'.
+         */
+        let qrBuffer = "";
+        window.addEventListener('keydown', async (e) => {
+            // Si el foco está en un input normal, no procesar el buffer del lector
+            if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+            if (e.key === 'Enter') {
+                if (qrBuffer.length > 5) {
+                    processPhysicalQR(qrBuffer);
+                }
+                qrBuffer = "";
+            } else {
+                // Solo añadir caracteres alfanuméricos y símbolos habituales en IDs
+                if (e.key.length === 1) qrBuffer += e.key;
+            }
+        });
+
+        async function processPhysicalQR(text) {
+            console.log("Lectura QR Físico:", text);
+            let tid = null;
+            let cid = null;
+
+            if (text.trim().startsWith("{")) {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.id) tid = data.id;
+                    if (data.clientId) cid = data.clientId;
+                } catch (e) { }
+            }
+
+            if (!tid && text.startsWith("TICKET_ID:")) tid = text.split(":")[1];
+            if (!cid && text.startsWith("CLIENT_ID:")) cid = text.split(":")[1];
+
+            if (tid) {
+                showLoading();
+                try {
+                    const tSnap = await db.collectionGroup('tickets').where('id', '==', tid).get();
+                    if (!tSnap.empty) {
+                        const tDoc = tSnap.docs[0];
+                        const tData = tDoc.data();
+
+                        if (document.getElementById('view-admin-tickets').style.display !== 'none') {
+                            // Cargar Cliente
+                            const uid = tDoc.ref.parent.parent.parent.parent.id;
+                            const compId = tDoc.ref.parent.parent.id;
+
+                            adminTicketUID = uid;
+                            document.getElementById('admin-ticket-client-select').value = uid;
+                            await loadAdminTicketCompanies(uid);
+                            adminTicketCompID = compId;
+                            document.getElementById('admin-ticket-company-select').value = compId;
+
+                            // Cargar Datos
+                            document.getElementById('admin-t-receiver').value = tData.receiver || "";
+                            document.getElementById('admin-t-phone').value = tData.phone || "";
+                            document.getElementById('admin-t-address').value = (tData.address || "").split(" Nº ")[0];
+                            document.getElementById('admin-t-number').value = (tData.address || "").includes(" Nº ") ? tData.address.split(" Nº ")[1] : "";
+                            document.getElementById('admin-t-province').value = tData.province || "";
+                            adminTicketPackages = tData.packagesList || [];
+                            renderAdminPackages();
+                            alert("Albarán y Cliente cargados: " + tid);
+                        } else {
+                            alert("Albarán detectado: " + tid + " (Ve a la sección 'Crear Albaranes' para ver/editar)");
+                        }
+                    } else { alert("Albarán no encontrado: " + tid); }
+                } catch (e) { alert("Error lector: " + e.message); }
+                finally { hideLoading(); }
+            } else if (cid) {
+                const uEntry = Object.entries(userMap).find(([id, data]) => data.idNum == cid);
+                if (uEntry) {
+                    if (document.getElementById('view-admin-tickets').style.display !== 'none') {
+                        adminTicketUID = uEntry[0];
+                        document.getElementById('admin-ticket-client-select').value = adminTicketUID;
+                        loadAdminTicketCompanies(adminTicketUID);
+                        alert("Cliente asignado: " + uEntry[1].name);
+                    } else {
+                        alert("Cliente detectado: " + uEntry[1].name);
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Shared Global Datalists -->
+    <datalist id="global-tariffs-datalist"></datalist>
+    <datalist id="clients-datalist"></datalist>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:10000; justify-content:center; align-items:center; flex-direction:column; gap:20px;">
+        <div
+            style="width:50px; height:50px; border:5px solid var(--border-glass); border-top-color:var(--brand-primary); border-radius:50%; animation: spin 1s linear infinite;">
+        </div>
+        <div
+            style="font-family:'Outfit', sans-serif; letter-spacing:2px; font-weight:300; font-size:0.8rem; color:var(--brand-primary)">
+            PROCESANDO...</div>
+    </div>
+    <style>
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</body>
+
+</html>
